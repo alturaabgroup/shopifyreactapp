@@ -9,8 +9,10 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-const signupSchema = loginSchema.extend({
-  firstName: z.string().min(1, 'First name is required').optional(),
+const signupSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  firstName: z.string().optional(),
   lastName: z.string().optional(),
 });
 
@@ -29,7 +31,7 @@ export default function AuthForm({ mode, onSubmit, isLoading }: AuthFormProps) {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormData | SignupFormData>({
+  } = useForm<SignupFormData>({
     resolver: zodResolver(schema),
   });
 

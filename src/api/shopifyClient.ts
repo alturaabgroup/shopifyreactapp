@@ -1,22 +1,22 @@
 import { GraphQLClient } from 'graphql-request';
 import type { GraphQLResponse } from '@/types/shopify';
 
-const SHOPIFY_DOMAIN = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
+const SHOPIFY_DOMAIN = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || '';
 const API_VERSION = process.env.NEXT_PUBLIC_SHOPIFY_API_VERSION || '2024-10';
-const STOREFRONT_TOKEN = process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN;
+const STOREFRONT_TOKEN = process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN || '';
 
-if (!SHOPIFY_DOMAIN || !STOREFRONT_TOKEN) {
-  throw new Error('Missing required Shopify environment variables');
-}
+const endpoint = SHOPIFY_DOMAIN 
+  ? `https://${SHOPIFY_DOMAIN}/api/${API_VERSION}/graphql.json`
+  : '';
 
-const endpoint = `https://${SHOPIFY_DOMAIN}/api/${API_VERSION}/graphql.json`;
-
-export const shopifyClient = new GraphQLClient(endpoint, {
-  headers: {
-    'X-Shopify-Storefront-Access-Token': STOREFRONT_TOKEN,
-    'Content-Type': 'application/json',
-  },
-});
+export const shopifyClient = endpoint && STOREFRONT_TOKEN
+  ? new GraphQLClient(endpoint, {
+      headers: {
+        'X-Shopify-Storefront-Access-Token': STOREFRONT_TOKEN,
+        'Content-Type': 'application/json',
+      },
+    })
+  : null;
 
 // Helper to log rate limit info
 export function logRateLimit(response: GraphQLResponse<any>) {
@@ -40,8 +40,12 @@ export async function shopifyRequest<T>(
   variables?: Record<string, any>,
   customerToken?: string
 ): Promise<T> {
+  if (!SHOPIFY_DOMAIN || !STOREFRONT_TOKEN) {
+    throw new Error('Missing required Shopify environment variables. Please check your .env.local file.');
+  }
+
   const headers: Record<string, string> = {
-    'X-Shopify-Storefront-Access-Token': STOREFRONT_TOKEN!,
+    'X-Shopify-Storefront-Access-Token': STOREFRONT_TOKEN,
     'Content-Type': 'application/json',
   };
 

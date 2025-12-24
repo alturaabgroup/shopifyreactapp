@@ -1,5 +1,5 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { getMessaging, getToken, onMessage, isSupported, Messaging } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -9,14 +9,14 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-let app;
+let app: FirebaseApp;
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
   app = getApps()[0];
 }
 
-let messaging: any = null;
+let messaging: Messaging | null = null;
 
 export async function initializeMessaging() {
   if (typeof window !== 'undefined') {
