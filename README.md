@@ -111,13 +111,30 @@ STOREFRONT_TOKEN_ROTATION_DAYS=30
 
 #### Getting Your Shopify Admin API Token
 
+**Important:** This application requires an **Admin API access token** (not Client ID/Secret). Follow these steps:
+
 1. Go to your Shopify Admin Panel
-2. Navigate to Settings → Apps and sales channels → Develop apps
-3. Create a new app or use an existing one
-4. Configure Admin API scopes:
-   - `write_storefront_access_tokens`
-   - `read_storefront_access_tokens`
-5. Install the app and copy the Admin API access token
+2. Navigate to **Settings → Apps and sales channels → Develop apps**
+3. **If you don't see "Develop apps"**, click "Allow custom app development" first
+4. Click **"Create an app"** or select an existing app
+5. Go to the **"Configuration"** tab
+6. Under **"Admin API integration"**, click **"Configure"**
+7. Select the following Admin API access scopes:
+   - `read_products` (to read product data)
+   - `write_storefront_access_tokens` (required - to create storefront tokens)
+   - `read_storefront_access_tokens` (required - to list storefront tokens)
+8. Click **"Save"**
+9. Go to the **"API credentials"** tab
+10. Click **"Install app"** (if not already installed)
+11. After installation, you'll see the **"Admin API access token"** - this is what you need
+12. Copy the token that starts with `shpat_` and paste it into your `.env` file
+
+**Note:** The Admin API access token is different from:
+- **API Key** (Client ID) - used for OAuth apps
+- **API Secret Key** - used for OAuth apps
+- **Storefront Access Token** - used for frontend (this app creates these automatically)
+
+You need the **Admin API access token** (starts with `shpat_`) for the backend to work.
 
 ### 3. Frontend Setup
 
@@ -317,6 +334,19 @@ All GraphQL queries are organized in `frontend/src/graphql/`:
 
 ### Backend Issues
 
+**401 Error: "Invalid API key or access token"**
+- **Cause**: Using wrong type of credentials (Client ID/Secret instead of Admin API access token)
+- **Solution**: 
+  1. You need the **Admin API access token** (starts with `shpat_`), not Client ID or API Secret
+  2. Go to your Shopify app → **API credentials** tab
+  3. If the app is not installed, click **"Install app"**
+  4. Copy the **"Admin API access token"** (revealed only once after installation)
+  5. If you lost it, you'll need to uninstall and reinstall the app to get a new token
+  6. Make sure your app has the required scopes:
+     - `read_products`
+     - `write_storefront_access_tokens`
+     - `read_storefront_access_tokens`
+
 **Backend Returns 500 Error When Fetching Token**
 - **Cause**: Backend environment variables not configured
 - **Solution**: 
@@ -326,7 +356,7 @@ All GraphQL queries are organized in `frontend/src/graphql/`:
   4. Visit `http://localhost:4000/api/config-check` to verify configuration
 
 **Token Creation Fails**
-- Verify Admin API token has correct scopes (`write_storefront_access_tokens`, `read_storefront_access_tokens`)
+- Verify Admin API token has correct scopes (`write_storefront_access_tokens`, `read_storefront_access_tokens`, `read_products`)
 - Check `SHOPIFY_STORE_DOMAIN` format (should be `your-store.myshopify.com`)
 - Ensure API version is correct (2025-07)
 - Test your credentials by visiting your Shopify admin panel
