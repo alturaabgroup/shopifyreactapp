@@ -1,0 +1,5 @@
+This is a placeholder for the 512x512 icon.
+Please replace this file with an actual PNG image (512x512 pixels).
+You can generate icons using tools like:
+- https://realfavicongenerator.net/
+- https://favicon.io/

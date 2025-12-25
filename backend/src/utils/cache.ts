@@ -1,26 +1,42 @@
 export class ExpiringCache<T> {
-  private value?: T;
-  private expiresAt: number = 0;
+  private values: Map<string, T>;
+  private expiresAt: Map<string, number>;
+  private defaultKey = '__default__';
 
-  constructor(private ttlMs: number) {}
-
-  set(val: T) {
-    this.value = val;
-    this.expiresAt = Date.now() + this.ttlMs;
+  constructor(private ttlMs: number) {
+    this.values = new Map();
+    this.expiresAt = new Map();
   }
 
-  get(): T | undefined {
-    if (!this.value) return undefined;
-    if (Date.now() > this.expiresAt) {
-      this.value = undefined;
-      this.expiresAt = 0;
+  set(val: T, key: string = this.defaultKey) {
+    this.values.set(key, val);
+    this.expiresAt.set(key, Date.now() + this.ttlMs);
+  }
+
+  get(key: string = this.defaultKey): T | undefined {
+    const value = this.values.get(key);
+    if (!value) return undefined;
+    
+    const expiresAt = this.expiresAt.get(key) || 0;
+    if (Date.now() > expiresAt) {
+      this.values.delete(key);
+      this.expiresAt.delete(key);
       return undefined;
     }
-    return this.value;
+    return value;
   }
 
-  clear() {
-    this.value = undefined;
-    this.expiresAt = 0;
+  clear(key?: string) {
+    if (key) {
+      this.values.delete(key);
+      this.expiresAt.delete(key);
+    } else {
+      this.values.clear();
+      this.expiresAt.clear();
+    }
+  }
+
+  getAllKeys(): string[] {
+    return Array.from(this.values.keys());
   }
 }
