@@ -20,11 +20,23 @@ router.get('/api/storefront-token', async (req: Request, res: Response) => {
       success: true,
       token,
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error({ error }, 'Failed to get storefront token');
+    
+    // Provide more helpful error messages
+    let errorMessage = 'Failed to retrieve storefront access token';
+    
+    if (error.message && error.message.includes('SHOPIFY_ADMIN_API_TOKEN')) {
+      errorMessage = 'Shopify Admin API token not configured. Please set SHOPIFY_ADMIN_API_TOKEN in your .env file.';
+    } else if (error.message && error.message.includes('SHOPIFY_STORE_DOMAIN')) {
+      errorMessage = 'Shopify store domain not configured. Please set SHOPIFY_STORE_DOMAIN in your .env file.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
     res.status(500).json({
       success: false,
-      error: 'Failed to retrieve storefront access token',
+      error: errorMessage,
     });
   }
 });

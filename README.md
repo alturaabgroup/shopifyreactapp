@@ -196,6 +196,7 @@ npm start
 
 #### Health Check
 - **GET** `/health` - Server health status
+- **GET** `/api/config-check` - Check backend configuration status
 
 #### Storefront Token Management
 - **GET** `/api/storefront-token` - Get current Storefront Access Token
@@ -316,20 +317,32 @@ All GraphQL queries are organized in `frontend/src/graphql/`:
 
 ### Backend Issues
 
+**Backend Returns 500 Error When Fetching Token**
+- **Cause**: Backend environment variables not configured
+- **Solution**: 
+  1. Copy `backend/.env.example` to `backend/.env`
+  2. Add your Shopify Admin API token and store domain
+  3. Restart the backend server
+  4. Visit `http://localhost:4000/api/config-check` to verify configuration
+
 **Token Creation Fails**
-- Verify Admin API token has correct scopes
+- Verify Admin API token has correct scopes (`write_storefront_access_tokens`, `read_storefront_access_tokens`)
 - Check `SHOPIFY_STORE_DOMAIN` format (should be `your-store.myshopify.com`)
 - Ensure API version is correct (2025-07)
+- Test your credentials by visiting your Shopify admin panel
 
 **CORS Errors**
 - Verify `CORS_ORIGINS` includes your frontend URL
 - Check that both servers are running
+- Ensure frontend URL matches exactly (including protocol and port)
 
 ### Frontend Issues
 
-**API Connection Fails**
-- Verify `NEXT_PUBLIC_BACKEND_URL` points to running backend
-- Check browser console for CORS errors
+**API Connection Fails / "Failed to fetch storefront token: 500"**
+- First, check if backend is configured: Visit `http://localhost:4000/api/config-check`
+- Verify `NEXT_PUBLIC_BACKEND_URL` points to running backend (default: `http://localhost:4000`)
+- Ensure backend server is running before starting frontend
+- Check browser console for detailed error messages
 
 **Cart Not Working**
 - Ensure Storefront API token is valid

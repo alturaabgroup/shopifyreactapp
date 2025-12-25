@@ -44,6 +44,25 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Configuration check endpoint (useful for debugging)
+app.get('/api/config-check', (req, res) => {
+  const configStatus = {
+    shopifyAdminToken: !!config.shopify.adminApiToken,
+    shopifyStoreDomain: !!config.shopify.storeDomain,
+    shopifyApiVersion: config.shopify.apiVersion,
+    corsOrigins: config.cors.origins,
+    environment: config.server.nodeEnv,
+  };
+  
+  res.json({
+    configured: configStatus.shopifyAdminToken && configStatus.shopifyStoreDomain,
+    details: configStatus,
+    message: !configStatus.shopifyAdminToken || !configStatus.shopifyStoreDomain
+      ? 'Backend not fully configured. Please create a .env file from .env.example and add your Shopify credentials.'
+      : 'Backend is properly configured.',
+  });
+});
+
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -51,6 +70,7 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/health',
+      configCheck: '/api/config-check',
       storefrontToken: '/api/storefront-token',
       tokenRotate: '/api/storefront-token/rotate',
       tokenCleanup: '/api/storefront-token/cleanup',
