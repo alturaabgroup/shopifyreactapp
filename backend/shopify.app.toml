@@ -1,0 +1,26 @@
+# Shopify App Configuration
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration
+
+name = "storefront-app-rct"
+client_id = "cec3787d1e417ec63c8220a3aa8f7a6a"
+application_url = "http://localhost:4000"
+embedded = false
+
+[access_scopes]
+# Required scopes for Storefront Access Token management
+#scopes = "write_storefront_access_tokens,read_storefront_access_tokens"
+
+[auth]
+redirect_urls = [
+  "http://localhost:4000/auth/callback"
+]
+
+[webhooks]
+api_version = "2025-07"
+
+[pos]
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = false
+dev_store_url = ""
