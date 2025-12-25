@@ -1,12 +1,17 @@
 import dotenv from 'dotenv';
+import { shopifyCLISession } from './utils/shopifyCLI.js';
 
 dotenv.config();
+
+// Try to load from Shopify CLI session if environment variables are not set
+const cliToken = shopifyCLISession.getAccessToken();
+const cliShop = shopifyCLISession.getShopDomain();
 
 export const config = {
   // Shopify Admin API
   shopify: {
-    adminApiToken: process.env.SHOPIFY_ADMIN_API_TOKEN || '',
-    storeDomain: process.env.SHOPIFY_STORE_DOMAIN || '',
+    adminApiToken: process.env.SHOPIFY_ADMIN_API_TOKEN || cliToken || '',
+    storeDomain: process.env.SHOPIFY_STORE_DOMAIN || cliShop || '',
     apiVersion: process.env.SHOPIFY_API_VERSION || '2025-07',
   },
 
@@ -45,11 +50,11 @@ export function validateConfig() {
   const errors: string[] = [];
 
   if (!config.shopify.adminApiToken) {
-    errors.push('SHOPIFY_ADMIN_API_TOKEN is required');
+    errors.push('SHOPIFY_ADMIN_API_TOKEN is required. Either set it in .env or run via Shopify CLI (`shopify app dev`)');
   }
 
   if (!config.shopify.storeDomain) {
-    errors.push('SHOPIFY_STORE_DOMAIN is required');
+    errors.push('SHOPIFY_STORE_DOMAIN is required. Either set it in .env or run via Shopify CLI (`shopify app dev`)');
   }
 
   if (errors.length > 0) {

@@ -85,9 +85,28 @@ cd backend
 # Install dependencies
 npm install
 
-# Create environment file
+# Create environment file (optional if using Shopify CLI)
 cp .env.example .env
 ```
+
+#### Authentication Options
+
+You have **two options** for authentication:
+
+**Option 1: Shopify CLI Session (Recommended for CLI apps)**
+
+If you're using a Shopify CLI-managed app:
+
+1. Make sure you have Shopify CLI installed: `npm install -g @shopify/cli @shopify/app`
+2. Navigate to your app directory
+3. Run: `shopify app dev`
+4. The CLI will authenticate and store tokens automatically
+5. Your backend will read tokens from `~/.config/shopify/`
+6. No need to manually configure `.env` - it's automatic!
+
+**Option 2: Custom App with Manual Token (Alternative)**
+
+If you prefer manual configuration or are using a custom app:
 
 Edit `backend/.env` and configure your Shopify credentials:
 
@@ -109,9 +128,9 @@ STOREFRONT_TOKEN_CACHE_TTL=2592000000
 STOREFRONT_TOKEN_ROTATION_DAYS=30
 ```
 
-#### Getting Your Shopify Admin API Token
+#### Getting Your Shopify Admin API Token (Option 2 only)
 
-**Important:** This application requires an **Admin API access token** (not Client ID/Secret). Follow these steps:
+**For Custom Apps:**
 
 1. Go to your Shopify Admin Panel
 2. Navigate to **Settings → Apps and sales channels → Develop apps**
@@ -133,8 +152,6 @@ STOREFRONT_TOKEN_ROTATION_DAYS=30
 - **API Key** (Client ID) - used for OAuth apps
 - **API Secret Key** - used for OAuth apps
 - **Storefront Access Token** - used for frontend (this app creates these automatically)
-
-You need the **Admin API access token** (starts with `shpat_`) for the backend to work.
 
 ### 3. Frontend Setup
 
@@ -171,7 +188,22 @@ Update `shopify.app.toml` in the root directory with your app details.
 
 ### Development Mode
 
-#### Start Backend Server
+You have two ways to run the backend:
+
+#### Method 1: With Shopify CLI (Recommended for CLI apps)
+
+```bash
+cd backend
+npm run dev:shopify
+```
+
+This will:
+- Start the Shopify CLI development server
+- Automatically authenticate with your Shopify store
+- Load tokens from CLI session
+- Start your backend on `http://localhost:4000`
+
+#### Method 2: Standalone (For custom apps with manual config)
 
 ```bash
 cd backend
@@ -179,6 +211,8 @@ npm run dev
 ```
 
 The backend will run on `http://localhost:4000`
+
+**Note:** Make sure you've configured `.env` if using this method.
 
 #### Start Frontend Development Server
 
@@ -334,14 +368,21 @@ All GraphQL queries are organized in `frontend/src/graphql/`:
 
 ### Backend Issues
 
-**401 Error: "Invalid API key or access token"**
-- **Cause**: Using wrong type of credentials (Client ID/Secret instead of Admin API access token)
+**Authentication Issues with Shopify CLI Apps**
+- **Symptom**: Backend can't find access token, even though you have a CLI app
 - **Solution**: 
-  1. You need the **Admin API access token** (starts with `shpat_`), not Client ID or API Secret
-  2. Go to your Shopify app → **API credentials** tab
-  3. If the app is not installed, click **"Install app"**
-  4. Copy the **"Admin API access token"** (revealed only once after installation)
-  5. If you lost it, you'll need to uninstall and reinstall the app to get a new token
+  1. **Option A (Recommended)**: Run via Shopify CLI: `npm run dev:shopify` instead of `npm run dev`
+  2. **Option B**: Create a Custom App instead of a CLI app (see authentication options in setup)
+  3. **Option C**: After running `shopify app dev`, the session should be in `~/.config/shopify/`
+  
+**401 Error: "Invalid API key or access token"**
+- **Cause**: Using wrong type of credentials or missing authentication
+- **Solution**: 
+  1. **For CLI apps**: Use `npm run dev:shopify` to start with Shopify CLI
+  2. **For Custom apps**: You need the **Admin API access token** (starts with `shpat_`)
+  3. Go to your Shopify app → **API credentials** tab
+  4. If the app is not installed, click **"Install app"**
+  5. Copy the **"Admin API access token"** (revealed only once after installation)
   6. Make sure your app has the required scopes:
      - `read_products`
      - `write_storefront_access_tokens`
@@ -350,10 +391,11 @@ All GraphQL queries are organized in `frontend/src/graphql/`:
 **Backend Returns 500 Error When Fetching Token**
 - **Cause**: Backend environment variables not configured
 - **Solution**: 
-  1. Copy `backend/.env.example` to `backend/.env`
-  2. Add your Shopify Admin API token and store domain
-  3. Restart the backend server
-  4. Visit `http://localhost:4000/api/config-check` to verify configuration
+  1. **For CLI apps**: Use `npm run dev:shopify` 
+  2. **For Custom apps**: Copy `backend/.env.example` to `backend/.env`
+  3. Add your Shopify Admin API token and store domain
+  4. Restart the backend server
+  5. Visit `http://localhost:4000/api/config-check` to verify configuration
 
 **Token Creation Fails**
 - Verify Admin API token has correct scopes (`write_storefront_access_tokens`, `read_storefront_access_tokens`, `read_products`)
