@@ -152,9 +152,148 @@ export class AdminClient {
   }
 
   /**
-   * Delete a Storefront Access Token by ID
+   * Create a new Storefront Access Token for a specific shop (OAuth mode)
    */
-  async deleteStorefrontAccessToken(id: string): Promise<boolean> {
+  async createStorefrontAccessTokenForShop(shop: string, accessToken: string, title: string): Promise<{ token: string; id: string }> {
+    const endpoint = `https://${shop}/admin/api/${config.shopify.apiVersion}/graphql.json`;
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': accessToken,
+    };
+
+    const mutation = `
+      mutation CreateStorefrontAccessToken($input: StorefrontAccessTokenInput!) {
+        storefrontAccessTokenCreate(input: $input) {
+          storefrontAccessToken {
+            id
+            accessToken
+            title
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    const variables = {
+      input: {
+        title,
+      },
+    };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: mutation, variables }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        logger.error({ status: response.status, body: text, shop }, 'Admin API request failed for shop');
+        throw new Error(`Admin API request failed: ${response.status} ${text}`);
+      }
+
+      const result = await response.json() as AdminAPIResponse<{
+        storefrontAccessTokenCreate: {
+          storefrontAccessToken?: {
+            id: string;
+            accessToken: string;
+            title: string;
+          };
+          userErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>;
+
+      if (result.errors) {
+        throw new Error(`Failed to create storefront access token: ${JSON.stringify(result.errors)}`);
+      }
+
+      const data = result.data?.storefrontAccessTokenCreate;
+      if (data?.userErrors && data.userErrors.length > 0) {
+        throw new Error(`User errors creating token: ${JSON.stringify(data.userErrors)}`);
+      }
+
+      if (!data?.storefrontAccessToken) {
+        throw new Error('No storefront access token returned');
+      }
+
+      return {
+        token: data.storefrontAccessToken.accessToken,
+        id: data.storefrontAccessToken.id,
+      };
+    } catch (error) {
+      logger.error({ error, shop }, 'Failed to create storefront token for shop');
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a Storefront Access Token for a specific shop (OAuth mode)
+   */
+  async deleteStorefrontAccessTokenForShop(shop: string, accessToken: string, id: string): Promise<boolean> {
+    const endpoint = `https://${shop}/admin/api/${config.shopify.apiVersion}/graphql.json`;
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': accessToken,
+    };
+
+    const mutation = `
+      mutation DeleteStorefrontAccessToken($input: StorefrontAccessTokenDeleteInput!) {
+        storefrontAccessTokenDelete(input: $input) {
+          deletedStorefrontAccessTokenId
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `;
+
+    const variables = {
+      input: {
+        id,
+      },
+    };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: mutation, variables }),
+      });
+
+      if (!response.ok) {
+        logger.error({ status: response.status, shop, tokenId: id }, 'Failed to delete token for shop');
+        return false;
+      }
+
+      const result = await response.json() as AdminAPIResponse<{
+        storefrontAccessTokenDelete: {
+          deletedStorefrontAccessTokenId?: string;
+          userErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>;
+
+      if (result.errors) {
+        logger.error({ errors: result.errors, shop, tokenId: id }, 'Failed to delete storefront access token');
+        return false;
+      }
+
+      const data = result.data?.storefrontAccessTokenDelete;
+      if (data?.userErrors && data.userErrors.length > 0) {
+        logger.error({ errors: data.userErrors, shop, tokenId: id }, 'User errors deleting token');
+        return false;
+      }
+
+      return !!data?.deletedStorefrontAccessTokenId;
+    } catch (error) {
+      logger.error({ error, shop, tokenId: id }, 'Exception deleting token for shop');
+      return false;
+    }
+  }
     const mutation = `
       mutation DeleteStorefrontAccessToken($input: StorefrontAccessTokenDeleteInput!) {
         storefrontAccessTokenDelete(input: $input) {

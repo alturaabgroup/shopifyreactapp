@@ -8,11 +8,20 @@ const cliToken = shopifyCLISession.getAccessToken();
 const cliShop = shopifyCLISession.getShopDomain();
 
 export const config = {
-  // Shopify Admin API
+  // Shopify Admin API (for single-store mode)
   shopify: {
     adminApiToken: process.env.SHOPIFY_ADMIN_API_TOKEN || cliToken || '',
     storeDomain: process.env.SHOPIFY_STORE_DOMAIN || cliShop || '',
     apiVersion: process.env.SHOPIFY_API_VERSION || '2025-07',
+  },
+
+  // OAuth Configuration (for multi-merchant mode)
+  oauth: {
+    enabled: process.env.OAUTH_ENABLED === 'true',
+    apiKey: process.env.SHOPIFY_API_KEY || '',
+    apiSecretKey: process.env.SHOPIFY_API_SECRET || '',
+    scopes: (process.env.SHOPIFY_SCOPES || 'read_products,write_storefront_access_tokens,read_storefront_access_tokens').split(','),
+    hostName: process.env.SHOPIFY_APP_URL || `http://localhost:${process.env.PORT || '4000'}`,
   },
 
   // Storefront Token Management
@@ -49,12 +58,26 @@ export const config = {
 export function validateConfig() {
   const errors: string[] = [];
 
-  if (!config.shopify.adminApiToken) {
-    errors.push('SHOPIFY_ADMIN_API_TOKEN is required. Either set it in .env or run via Shopify CLI (`shopify app dev`)');
-  }
+  // Check if OAuth mode is enabled
+  if (config.oauth.enabled) {
+    if (!config.oauth.apiKey) {
+      errors.push('SHOPIFY_API_KEY is required when OAuth is enabled');
+    }
+    if (!config.oauth.apiSecretKey) {
+      errors.push('SHOPIFY_API_SECRET is required when OAuth is enabled');
+    }
+    if (!config.oauth.hostName) {
+      errors.push('SHOPIFY_APP_URL is required when OAuth is enabled');
+    }
+  } else {
+    // Single-store mode validation
+    if (!config.shopify.adminApiToken) {
+      errors.push('SHOPIFY_ADMIN_API_TOKEN is required. Either set it in .env or run via Shopify CLI (`shopify app dev`)');
+    }
 
-  if (!config.shopify.storeDomain) {
-    errors.push('SHOPIFY_STORE_DOMAIN is required. Either set it in .env or run via Shopify CLI (`shopify app dev`)');
+    if (!config.shopify.storeDomain) {
+      errors.push('SHOPIFY_STORE_DOMAIN is required. Either set it in .env or run via Shopify CLI (`shopify app dev`)');
+    }
   }
 
   if (errors.length > 0) {

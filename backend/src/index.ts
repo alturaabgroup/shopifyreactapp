@@ -3,6 +3,8 @@ import cors from 'cors';
 import { config, validateConfig } from './config.js';
 import storefrontTokenRoutes from './routes/storefrontToken.js';
 import notificationsRoutes from './routes/notifications.js';
+import oauthRoutes from './routes/oauth.js';
+import webhookRoutes from './routes/webhooks.js';
 import pino from 'pino';
 
 const logger = pino({ name: 'server' });
@@ -11,6 +13,7 @@ const logger = pino({ name: 'server' });
 try {
   validateConfig();
   logger.info('Configuration validated successfully');
+  logger.info({ oauthEnabled: config.oauth.enabled }, 'OAuth mode');
 } catch (error) {
   logger.error({ error }, 'Configuration validation failed');
   process.exit(1);
@@ -18,7 +21,10 @@ try {
 
 const app = express();
 
-// Middleware
+// Webhook routes need raw body for signature verification
+app.use('/api/webhooks', express.text({ type: '*/*' }));
+
+// Middleware for other routes
 app.use(express.json());
 app.use(cors({
   origin: config.cors.origins,
@@ -32,6 +38,11 @@ app.use((req, res, next) => {
 });
 
 // Routes
+if (config.oauth.enabled) {
+  app.use(oauthRoutes);
+  app.use(webhookRoutes);
+  logger.info('OAuth and webhook routes enabled');
+}
 app.use(storefrontTokenRoutes);
 app.use(notificationsRoutes);
 
@@ -47,39 +58,59 @@ app.get('/health', (req, res) => {
 // Configuration check endpoint (useful for debugging)
 app.get('/api/config-check', (req, res) => {
   const configStatus = {
+    oauthEnabled: config.oauth.enabled,
     shopifyAdminToken: !!config.shopify.adminApiToken,
     shopifyStoreDomain: !!config.shopify.storeDomain,
     shopifyApiVersion: config.shopify.apiVersion,
+    shopifyApiKey: config.oauth.enabled ? !!config.oauth.apiKey : 'N/A',
+    shopifyApiSecret: config.oauth.enabled ? !!config.oauth.apiSecretKey : 'N/A',
     corsOrigins: config.cors.origins,
     environment: config.server.nodeEnv,
   };
   
+  const isConfigured = config.oauth.enabled
+    ? !!(config.oauth.apiKey && config.oauth.apiSecretKey)
+    : !!(configStatus.shopifyAdminToken && configStatus.shopifyStoreDomain);
+  
   res.json({
-    configured: configStatus.shopifyAdminToken && configStatus.shopifyStoreDomain,
+    configured: isConfigured,
     details: configStatus,
-    message: !configStatus.shopifyAdminToken || !configStatus.shopifyStoreDomain
-      ? 'Backend not fully configured. Please create a .env file from .env.example and add your Shopify credentials.'
+    message: !isConfigured
+      ? config.oauth.enabled
+        ? 'OAuth mode: Configure SHOPIFY_API_KEY and SHOPIFY_API_SECRET in .env'
+        : 'Single-store mode: Configure SHOPIFY_ADMIN_API_TOKEN and SHOPIFY_STORE_DOMAIN in .env'
       : 'Backend is properly configured.',
   });
 });
 
 // Root endpoint
 app.get('/', (req, res) => {
+  const endpoints: Record<string, string> = {
+    health: '/health',
+    configCheck: '/api/config-check',
+    storefrontToken: '/api/storefront-token',
+    tokenRotate: '/api/storefront-token/rotate',
+    tokenCleanup: '/api/storefront-token/cleanup',
+    notificationsSubscribe: '/api/notifications/subscribe',
+    notificationsUnsubscribe: '/api/notifications/unsubscribe',
+    notificationsVapidKey: '/api/notifications/vapid-public-key',
+    notificationsSend: '/api/notifications/send',
+    notificationsStats: '/api/notifications/stats',
+  };
+
+  if (config.oauth.enabled) {
+    endpoints.auth = '/api/auth?shop=yourstore.myshopify.com';
+    endpoints.authCallback = '/api/auth/callback';
+    endpoints.authValidate = '/api/auth/validate?shop=yourstore.myshopify.com';
+    endpoints.shopInfo = '/api/shop-info?shop=yourstore.myshopify.com';
+    endpoints.webhooks = '/api/webhooks/*';
+  }
+
   res.json({
     name: 'Shopify Storefront Backend API',
     version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      configCheck: '/api/config-check',
-      storefrontToken: '/api/storefront-token',
-      tokenRotate: '/api/storefront-token/rotate',
-      tokenCleanup: '/api/storefront-token/cleanup',
-      notificationsSubscribe: '/api/notifications/subscribe',
-      notificationsUnsubscribe: '/api/notifications/unsubscribe',
-      notificationsVapidKey: '/api/notifications/vapid-public-key',
-      notificationsSend: '/api/notifications/send',
-      notificationsStats: '/api/notifications/stats',
-    },
+    mode: config.oauth.enabled ? 'OAuth (Multi-merchant)' : 'Single-store',
+    endpoints,
   });
 });
 
@@ -95,10 +126,13 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 // Start server
 const PORT = config.server.port;
 app.listen(PORT, () => {
-  logger.info({ port: PORT, nodeEnv: config.server.nodeEnv }, 'Server started');
+  logger.info({ port: PORT, nodeEnv: config.server.nodeEnv, oauthEnabled: config.oauth.enabled }, 'Server started');
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📝 Environment: ${config.server.nodeEnv}`);
-  console.log(`🏪 Shopify Store: ${config.shopify.storeDomain}`);
+  console.log(`🔐 Mode: ${config.oauth.enabled ? 'OAuth (Multi-merchant)' : 'Single-store'}`);
+  if (!config.oauth.enabled) {
+    console.log(`🏪 Shopify Store: ${config.shopify.storeDomain}`);
+  }
   console.log(`📦 API Version: ${config.shopify.apiVersion}`);
 });
 

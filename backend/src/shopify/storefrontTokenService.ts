@@ -24,28 +24,73 @@ export class StorefrontTokenService {
   }
 
   /**
-   * Get or create a Storefront Access Token
-   * Returns cached token if available and valid, otherwise creates a new one
+   * Get or create a Storefront Access Token for a specific shop (OAuth mode)
    */
-  async getStorefrontToken(): Promise<string> {
-    // Check cache first
-    const cached = this.cache.get();
+  async getStorefrontTokenForShop(shop: string, accessToken: string): Promise<string> {
+    // In OAuth mode, we use a per-shop cache key
+    const cacheKey = `shop:${shop}`;
+    const cached = this.cache.get(cacheKey);
+    
     if (cached) {
-      logger.info('Returning cached storefront token');
+      logger.info({ shop }, 'Returning cached storefront token for shop');
       
       // Check if rotation is needed based on age
       const ageInDays = (Date.now() - cached.createdAt.getTime()) / (1000 * 60 * 60 * 24);
       if (ageInDays >= config.storefrontToken.rotationDays) {
-        logger.info({ ageInDays }, 'Token needs rotation, creating new token');
-        return this.createAndCacheToken(cached.tokenId);
+        logger.info({ shop, ageInDays }, 'Token needs rotation, creating new token');
+        return this.createAndCacheTokenForShop(shop, accessToken, cached.tokenId);
       }
       
       return cached.token;
     }
 
     // No cached token, create new one
-    logger.info('No cached token, creating new token');
-    return this.createAndCacheToken();
+    logger.info({ shop }, 'No cached token for shop, creating new token');
+    return this.createAndCacheTokenForShop(shop, accessToken);
+  }
+
+  /**
+   * Create a new Storefront Access Token for a specific shop and cache it
+   */
+  private async createAndCacheTokenForShop(shop: string, accessToken: string, oldTokenId?: string): Promise<string> {
+    try {
+      // Create new token using the shop's access token
+      const { token, id } = await adminClient.createStorefrontAccessTokenForShop(
+        shop,
+        accessToken,
+        `${this.tokenTitle}-${shop}`
+      );
+      
+      logger.info({ shop, tokenId: id }, 'Created new storefront access token for shop');
+
+      // Cache the new token with shop-specific key
+      const cacheKey = `shop:${shop}`;
+      this.cache.set(
+        {
+          token,
+          tokenId: id,
+          createdAt: new Date(),
+        },
+        cacheKey
+      );
+
+      // Delete old token if rotation is happening
+      if (oldTokenId) {
+        try {
+          const deleted = await adminClient.deleteStorefrontAccessTokenForShop(shop, accessToken, oldTokenId);
+          if (deleted) {
+            logger.info({ shop, oldTokenId }, 'Deleted old storefront access token during rotation');
+          }
+        } catch (error) {
+          logger.error({ error, shop, oldTokenId }, 'Error deleting old token during rotation');
+        }
+      }
+
+      return token;
+    } catch (error) {
+      logger.error({ error, shop }, 'Failed to create storefront access token for shop');
+      throw error;
+    }
   }
 
   /**

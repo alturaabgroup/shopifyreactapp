@@ -1,5 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { storefrontTokenService } from '../shopify/storefrontTokenService.js';
+import { config } from '../config.js';
+import { sessionStorage } from '../utils/sessionStorage.js';
+import { shopify } from '../shopify/shopifyApi.js';
 import pino from 'pino';
 
 const logger = pino({ name: 'storefrontTokenRoute' });
@@ -9,11 +12,57 @@ const router = Router();
  * GET /api/storefront-token
  * Returns the current Storefront Access Token
  * Creates a new one if none exists or if rotation is needed
+ * 
+ * Query params (for OAuth mode):
+ * - shop: The shop domain (required in OAuth mode)
  */
 router.get('/api/storefront-token', async (req: Request, res: Response) => {
   try {
     logger.info('Storefront token requested');
     
+    // OAuth mode: get token for specific shop
+    if (config.oauth.enabled) {
+      const shop = req.query.shop as string;
+      
+      if (!shop) {
+        return res.status(400).json({
+          success: false,
+          error: 'Missing shop parameter (required in OAuth mode)',
+        });
+      }
+      
+      // Find session for this shop
+      const sessions = await sessionStorage.findSessionsByShop(shop);
+      
+      if (sessions.length === 0) {
+        return res.status(401).json({
+          success: false,
+          error: 'No authenticated session found',
+          requiresAuth: true,
+        });
+      }
+      
+      const session = sessions[0];
+      
+      if (!session.isActive(shopify.config.scopes)) {
+        return res.status(401).json({
+          success: false,
+          error: 'Session expired',
+          requiresAuth: true,
+        });
+      }
+      
+      // Get storefront token for this shop using their session
+      const token = await storefrontTokenService.getStorefrontTokenForShop(shop, session.accessToken!);
+      
+      return res.json({
+        success: true,
+        token,
+        shop,
+      });
+    }
+    
+    // Single-store mode: use configured credentials
     const token = await storefrontTokenService.getStorefrontToken();
     
     res.json({
