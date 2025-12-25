@@ -2,7 +2,7 @@
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration
 
 name = "shopify-storefront-app"
-client_id = ""
+client_id = "cec3787d1e417ec63c8220a3aa8f7a6a"
 application_url = "http://localhost:4000"
 embedded = false
 
